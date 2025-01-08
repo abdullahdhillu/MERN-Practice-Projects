@@ -9,7 +9,6 @@ mongoose.connect(DB).then(() => {
 }).catch(err => {
   console.log('DB connection failed:', err.message);
 });
-console.log("Hello Abdullah Dhillon Sahb GGG");
 
 
 
