@@ -1,5 +1,6 @@
 // const fs = require('fs');
 const tourModel = require(`./../model/tourModel`);
+const catchAsync = require("./../utilities/catchAsync");
 // const APIfeatures = require(`./../utilities/apiFeatures`);
 // console.log(APIfeatures);
 exports.aliasTopTour = (req, res, next) => {
@@ -66,7 +67,7 @@ class APIfeatures {
     return this;
   }
 }
-exports.getAllTours = async (req, res) => {
+exports.getAllTours = catchAsync(async (req, res) => {
   try {
     // Apply filtering, sorting, field limiting, and pagination
     const features = new APIfeatures(tourModel.find(), req.query)
@@ -88,8 +89,8 @@ exports.getAllTours = async (req, res) => {
       message: err.message,
     });
   }
-};
-exports.getTour = async (req, res) => {
+});
+exports.getTour = catchAsync(async (req, res) => {
   try {
     // console.log(req.params.id);
     const tour = await tourModel.find({ _id: req.params.id }); // same as findById(req.params.id)
@@ -97,8 +98,8 @@ exports.getTour = async (req, res) => {
   } catch (err) {
     res.status(200).json({ status: "fail", message: err.message });
   }
-};
-exports.updateTour = async (req, res) => {
+});
+exports.updateTour = catchAsync(async (req, res) => {
   try {
     const tour = await tourModel.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
@@ -116,38 +117,8 @@ exports.updateTour = async (req, res) => {
       message: "fail",
     });
   }
-  // const id = req.params.id * 1;
-  // const tour = tours.find((el) => el.id === id);
-  // if (!tour) {
-  //   return res.status(400).json({ message: 'fail', data: { tour: null } });
-  // }
-  // const tourIndex = tours.findIndex((el) => el.id === id);
-  // const updated = { ...tour, ...req.body }; // main implementation
-  // tours[tourIndex] = updated; //updating our tours-simple.json file with the updated data
-  // console.log(__dirname);
-  // fs.writeFile(
-  //   // writing the updated data to the file
-  //   `${__dirname}/../dev-data/data/tours-simple.json`, // Path to your tours file
-  //   JSON.stringify(tours, null, 2), // Convert to JSON string
-  //   (err) => {
-  //     if (err) {
-  //       console.error('Error writing to file', err);
-  //       return res.status(500).json({
-  //         status: 'fail',
-  //         message: 'Could not update file',
-  //       });
-  //     }
-  //     // Send the updated tour as response
-  //     res.status(200).json({
-  //       status: 'success',
-  //       data: {
-  //         updated,
-  //       },
-  //     });
-  //   }
-  // );
-};
-exports.replaceTour = async (req, res) => {
+});
+exports.replaceTour = catchAsync(async (req, res) => {
   try {
     const tour = await tourModel.findOneAndReplace(
       { _id: req.params.id },
@@ -166,40 +137,18 @@ exports.replaceTour = async (req, res) => {
       message: "fail",
     });
   }
-};
-exports.createTour = async (req, res) => {
-  try {
-    const newTour = await tourModel.create(req.body);
-    res.status(201).json({
-      status: "success",
-      data: {
-        tour: newTour,
-      },
-    });
-  } catch (err) {
-    res.status(400).json({
-      status: "fail",
-      message: err.message,
-    });
-  }
-  // const newId = tours[tours.length - 1].id + 1; // get the last id and add 1
-  // const newTour = Object.assign({ id: newId }, req.body);
-  // tours.push(newTour); //add newTour to tours array
-  // fs.writeFile(
-  //   `${__dirname}/../dev-data/data/tours-simple.json`,
-  //   JSON.stringify(tours), // replace the previous tours array with modified one
-  //   (err) => {
-  //     if (err) {
-  //       return res.status(500).json({
-  //         status: 'fail',
-  //         message: err.message,
-  //       });
-  //     }
-  //
-  //   }
-  // );
-};
-exports.deleteTour = async (req, res) => {
+});
+
+exports.createTour = catchAsync(async (req, res) => {
+  const newTour = await tourModel.create(req.body);
+  res.status(201).json({
+    status: "success",
+    data: {
+      tour: newTour,
+    },
+  });
+});
+exports.deleteTour = catchAsync(async (req, res) => {
   try {
     const tour = await tourModel.findOneAndDelete({ _id: req.params.id });
     if (!tour) {
@@ -211,8 +160,8 @@ exports.deleteTour = async (req, res) => {
   } catch (err) {
     return res.status(400).json({ message: err.message });
   }
-};
-exports.getTourStats = async (req, res) => {
+});
+exports.getTourStats = catchAsync(async (req, res) => {
   try {
     const stats = await tourModel.aggregate([
       {
@@ -248,8 +197,8 @@ exports.getTourStats = async (req, res) => {
       message: err.message,
     });
   }
-};
-exports.getMonthlyPlan = async (req, res) => {
+});
+exports.getMonthlyPlan = catchAsync(async (req, res) => {
   try {
     const year = req.params.year * 1;
     const plan = await tourModel.aggregate([
@@ -298,4 +247,4 @@ exports.getMonthlyPlan = async (req, res) => {
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
-};
+});
