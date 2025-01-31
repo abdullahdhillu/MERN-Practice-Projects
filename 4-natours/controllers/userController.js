@@ -1,11 +1,13 @@
-const fs = require("fs");
-exports.getAllUsers = (req, res) => {
-  res.status(505).json({
-    status: "fail",
-    message: "This route is not defined",
-    data: null,
+const User = require("./../model/userModel");
+const catchAsync = require("./../utilities/catchAsync");
+exports.getAllUsers = catchAsync(async (req, res, next) => {
+  const users = await User.find();
+  res.status(200).json({
+    status: "success",
+    results: users.length,
+    users,
   });
-};
+});
 exports.getUser = (req, res) => {
   res.status(505).json({
     status: "fail",

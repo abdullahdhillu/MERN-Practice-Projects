@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 const validator = require("validator");
-// const bcrypt = require("bcryptjs");
-const hash = require("./../utilities/hashing");
+const bcrypt = require("bcryptjs");
+const { hashPass } = require("./../utilities/hashing");
 const userSchema = new mongoose.Schema([
   {
     name: {
@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema([
       type: String,
       required: [true, "Please enter your password"],
       minLength: [8, "Password must be at least 8 characters"],
+      select: false,
     },
   },
   {
@@ -44,9 +45,15 @@ const userSchema = new mongoose.Schema([
   },
 ]);
 userSchema.pre("save", async function (next) {
-  this.password = await hash.hashPass(this.password);
+  this.password = await hashPass(this.password);
   this.passwordConfirm = undefined;
   next();
 });
+userSchema.methods.correctPassword = function (
+  candidatePassword,
+  userPassword
+) {
+  return bcrypt.compare(candidatePassword, userPassword);
+};
 const User = mongoose.model("User", userSchema);
 module.exports = User;
