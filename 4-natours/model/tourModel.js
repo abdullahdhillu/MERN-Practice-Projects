@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const slugify = require("slugify");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const tourSchema = new mongoose.Schema(
   {
     name: {
@@ -132,7 +132,7 @@ tourSchema.post(/^find/, function (docs, next) {
 
 //Aggregation Middleware
 tourSchema.pre("aggregate", function (next) {
-  this._pipeline.push({ $match: { secretTour: { $ne: true } } });
+  this._pipeline.push({ $match: { secretTour: { $ne: false } } });
   next();
 });
 

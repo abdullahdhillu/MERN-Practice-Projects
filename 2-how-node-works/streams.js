@@ -19,7 +19,7 @@ server.on("request", (req, res) => {
   //   res.end("File Not Found!");
   // });
 
-  // Soluton 3
+  // Solution 3
   const readable = fs.createReadStream("test-file.txt");
   readable.pipe(res);
 });

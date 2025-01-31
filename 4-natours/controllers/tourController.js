@@ -1,4 +1,3 @@
-// const fs = require('fs');
 const tourModel = require(`./../model/tourModel`);
 const catchAsync = require("./../utilities/catchAsync");
 const AppError = require("./../utilities/appError");
@@ -77,7 +76,7 @@ exports.getAllTours = catchAsync(async (req, res) => {
   await features.pagination();
   // Execute the query
   const result = await features.query;
-
+  console.log(result);
   res.status(200).json({
     message: "success",
     results: result.length,
@@ -158,7 +157,7 @@ exports.getTourStats = catchAsync(async (req, res) => {
       $sort: { avgPrice: 1 },
     },
     {
-      $match: { _id: { $ne: "easy" } },
+      $match: { _id: { $ne: "medium" } },
     },
   ]);
   res.status(200).json({
