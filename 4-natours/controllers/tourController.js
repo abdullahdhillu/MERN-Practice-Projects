@@ -76,7 +76,7 @@ exports.getAllTours = catchAsync(async (req, res) => {
   await features.pagination();
   // Execute the query
   const result = await features.query;
-  console.log(result);
+  // console.log(result);
   res.status(200).json({
     message: "success",
     results: result.length,

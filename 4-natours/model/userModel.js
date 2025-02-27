@@ -8,30 +8,22 @@ const userSchema = new mongoose.Schema([
       type: String,
       required: [true, "Please enter your name"],
     },
-  },
-  {
     email: {
       type: String,
-      required: [true, "Please enter your name"],
+      required: [true, "Please enter your email"],
       lowercase: true,
       unique: true,
       validate: [validator.isEmail, "Invalid email address"],
     },
-  },
-  {
     photo: {
       type: String,
     },
-  },
-  {
     password: {
       type: String,
       required: [true, "Please enter your password"],
       minLength: [8, "Password must be at least 8 characters"],
       select: false,
     },
-  },
-  {
     passwordConfirm: {
       type: String,
       validate: {
@@ -41,6 +33,9 @@ const userSchema = new mongoose.Schema([
         },
         message: "Passwords don't match",
       },
+    },
+    passwordChangedAfter: {
+      type: Date,
     },
   },
 ]);
@@ -54,6 +49,16 @@ userSchema.methods.correctPassword = function (
   userPassword
 ) {
   return bcrypt.compare(candidatePassword, userPassword);
+};
+userSchema.methods.changedPassword = function (jwtTimeStamp) {
+  if (this.passwordChangedAfter) {
+    const changedTimeStamp = parseInt(
+      this.passwordChangedAfter.getTime() / 1000
+    );
+    console.log(jwtTimeStamp, changedTimeStamp);
+    return jwtTimeStamp < changedTimeStamp;
+  }
+  return false;
 };
 const User = mongoose.model("User", userSchema);
 module.exports = User;
