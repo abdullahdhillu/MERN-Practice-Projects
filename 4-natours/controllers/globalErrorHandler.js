@@ -37,7 +37,7 @@ const sendErrorProd = (err, req, res) => {
       message: err.message,
     });
   } else {
-    // console.log(err.stack);
+    console.log(err.stack);
     res.status(500).json({
       status: "error",
       message: "Something went wrong",

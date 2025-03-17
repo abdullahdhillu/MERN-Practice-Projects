@@ -1,10 +1,11 @@
 const User = require("./../model/userModel");
-const { promisify } = require("util");
 const catchAsync = require("./../utilities/catchAsync");
 const AppError = require("./../utilities/appError");
 const jwt = require("jsonwebtoken");
-const { Signature } = require("./../utilities/signToken");
-const { findById } = require("../model/tourModel");
+const { Signature } = require("./../utilities/signToken"); // Ensure process is defined
+
+const { promisify } = require("util");
+// const { findById, find } = require("../model/tourModel");
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create(req.body);
   const token = Signature(newUser._id);
@@ -38,6 +39,7 @@ exports.login = catchAsync(async (req, res, next) => {
 exports.protect = catchAsync(async (req, res, next) => {
   // console.log(req.headers.authorization);
   // check if the token exists
+
   let token;
   if (
     req.headers.authorization &&
@@ -45,10 +47,15 @@ exports.protect = catchAsync(async (req, res, next) => {
   ) {
     token = req.headers.authorization.split(" ")[1];
   }
+  // console.log(token);
   if (!token) {
     return next(new AppError("You are not logged in", 401));
   }
   //Verify the token
+  // So Basically we use jwt.verify(provided token, secret key) to verify the token before giving access to user
+  //to the user using the _id parameter inside the token. jwt.verify() takes the header, payload out of the token
+  // and verifies it with the secret key. If it matches, it means it's verified, otherwise it's not.
+
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
   // console.log(decoded);
   //Check if the user still exists
@@ -58,12 +65,35 @@ exports.protect = catchAsync(async (req, res, next) => {
       new AppError("User belonging to this token no longer exists", 401)
     );
   }
-  console.log(decoded.iat);
-  if (currentUser.changedPassword(decoded.iat)) {
-    return next(
-      new AppError("User recently changed password, please log in again", 401)
-    );
-  }
-  console.log(decoded, "hi");
+  req.user = currentUser;
+  // console.log(decoded, "hi");
   next();
+});
+
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return next(
+        new AppError("You do not have permission to perform this action", 403)
+      );
+    }
+    next();
+  };
+};
+
+exports.forgotPassword = catchAsync(async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
+  if (!user) {
+    return next(new AppError("User does not exist with that email", 404));
+  }
+
+  const resetToken = user.createPasswordResetToken();
+  await user.save({ validateBeforeSave: false });
+
+  // Send a success response
+  res.status(200).json({
+    status: "Success",
+    message: "Password reset token generated successfully",
+    resetToken,
+  });
 });
