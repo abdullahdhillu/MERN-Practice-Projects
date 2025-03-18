@@ -1,10 +1,12 @@
 const User = require("./../model/userModel");
 const catchAsync = require("./../utilities/catchAsync");
 const AppError = require("./../utilities/appError");
+const sendEmail = require("./../utilities/email");
 const jwt = require("jsonwebtoken");
 const { Signature } = require("./../utilities/signToken"); // Ensure process is defined
 
 const { promisify } = require("util");
+const { AggregationCursor } = require("mongodb");
 // const { findById, find } = require("../model/tourModel");
 exports.signup = catchAsync(async (req, res, next) => {
   const newUser = await User.create(req.body);
@@ -90,6 +92,25 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
 
+  const resetURL = `${req.protocol}://${req.get("host")}/api/v1/users/resetPassword/${resetToken}`;
+  const message = `Forgot your password? Reset it here: ${resetURL}`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Your password reset token is valid for 10 min",
+      message,
+    });
+  } catch {
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      new AppError("Error in sending Email, Please Try Again Later"),
+      500
+    );
+  }
+
   // Send a success response
   res.status(200).json({
     status: "Success",
@@ -97,3 +118,5 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     resetToken,
   });
 });
+
+exports.resetPassword = catchAsync(async (req, res, next) => {});
