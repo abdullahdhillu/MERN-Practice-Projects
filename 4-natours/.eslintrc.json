@@ -1,9 +1,13 @@
 {
   "env": {
     "node": true,
+    "es2021": true,
     "es6": true,
     "browser": true
   },
+  "globals": {
+    "process": "readonly"// Define process as a global variable
+},
   "extends": ["airbnb-base", "prettier", "eslint:recommended"],
   "parserOptions": {
     "ecmaVersion": 2021,
@@ -33,7 +37,7 @@
         "argsIgnorePattern": "req|res|next" // Ignore common Express.js params
       }
     ],
-    "spaced-comment": "warn", // Warn for unspaced comments
+    "spaced-comment": "warn", 
     "arrow-body-style": "off", // Allow flexibility with arrow function bodies
     "no-multi-assign": "off", // Allow multiple variable assignments
     "import/prefer-default-export": "off", // Avoid forcing default exports
