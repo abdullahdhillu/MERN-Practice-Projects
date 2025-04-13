@@ -5,14 +5,27 @@ const app = express();
 const morgan = require("morgan");
 const AppError = require("./utilities/appError");
 const globalErrorHandler = require("./controllers/globalErrorHandler");
+const rateLimiter = require("express-rate-limit");
+const helmet = require("helmet");
+const xss = require("xss-clean");
+const mongoSanitize = require("express-mongo-sanitize");
 // console.log(process.env);
 // 2: Middlewares
+app.use(helmet());
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 } else {
   console.log("In Production Env");
 }
-app.use(express.json()); // for parsing application/json
+const limiter = rateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 minute
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: "Too many requests, please try again after 1 hour",
+});
+app.use("/api", limiter);
+app.use(express.json({ limit: "10kb" })); // for parsing application/json
+app.use(xss());
+app.use(mongoSanitize());
 app.use(express.static(`${__dirname}/public`)); // serve static files from public folder
 // 3: ROUTES
 app.use("/api/v1/tours", tourRouter);

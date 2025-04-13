@@ -4,20 +4,31 @@ const AppError = require("./../utilities/appError");
 const sendEmail = require("./../utilities/email");
 const jwt = require("jsonwebtoken");
 const { Signature } = require("./../utilities/signToken"); // Ensure process is defined
-
+const crypto = require("crypto");
 const { promisify } = require("util");
-const { AggregationCursor } = require("mongodb");
+// const { AggregationCursor } = require("mongodb");
 // const { findById, find } = require("../model/tourModel");
-exports.signup = catchAsync(async (req, res, next) => {
-  const newUser = await User.create(req.body);
-  const token = Signature(newUser._id);
-  res.status(201).json({
+const cookieOptions = {
+  expires: Date.now() + process.env.JWT_COOKIE_EXPIRES * 24 * 60 * 60 * 1000, // 90 day expiry date
+  httpOnly: true, // browser can't access this cookie
+};
+const createSendToken = async (user, statusCode, res) => {
+  const token = await Signature(user._id);
+  if (process.env.NODE_ENV === "production") {
+    cookieOptions.secure = true; // only works on https, won't work on http
+  }
+  res.cookie("jwt", token, cookieOptions);
+  res.status(statusCode).json({
     status: "success",
     token,
     data: {
-      user: newUser,
+      user,
     },
   });
+};
+exports.signup = catchAsync(async (req, res, next) => {
+  const newUser = await User.create(req.body);
+  createSendToken(newUser._id, 200, res);
 });
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
@@ -30,13 +41,7 @@ exports.login = catchAsync(async (req, res, next) => {
   if (!user || !(await user.correctPassword(password, user.password))) {
     return next(new AppError("Incorrect Email or Password", 401));
   }
-  const token = Signature(user._id);
-  //Send Response
-  res.status(200).json({
-    status: "success",
-    user,
-    token,
-  });
+  createSendToken(user._id, 200, res);
 });
 exports.protect = catchAsync(async (req, res, next) => {
   // console.log(req.headers.authorization);
@@ -114,9 +119,69 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
   // Send a success response
   res.status(200).json({
     status: "Success",
-    message: "Password reset token generated successfully",
+    message: "Token sent to Email",
     resetToken,
   });
 });
 
-exports.resetPassword = catchAsync(async (req, res, next) => {});
+exports.resetPassword = catchAsync(async (req, res, next) => {
+  const hashedToken = await crypto
+    .createHash("sha256")
+    .update(req.params.token)
+    .digest("hex");
+  const user = await User.findOne({
+    passwordResetToken: hashedToken,
+    passwordResetExpires: { $gt: Date.now() },
+  });
+  if (!user) {
+    return next(new AppError("Invalid token or expired token", 400));
+  }
+  user.password = req.body.password;
+  user.passwordConfirm = req.body.passwordConfirm;
+  user.passwordResetToken = undefined;
+  user.passwordResetExpires = undefined;
+  try {
+    await user.save(); // This will trigger validation
+  } catch (err) {
+    // Pass the error to the error-handling middleware
+    return next(new AppError(err.message, 400));
+  }
+  const token = Signature(user._id);
+
+  res.status(200).json({
+    message: "Password Reset Successfully",
+    token,
+  });
+});
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  // Get the user from req.user (set by protect middleware)
+  const user = await User.findById(req.user.id).select("+password");
+
+  // Check if current password is provided and correct
+  if (!req.body.currentPassword) {
+    return next(new AppError("Please enter your current password", 400));
+  }
+  if (!(await user.correctPassword(req.body.currentPassword, user.password))) {
+    return next(new AppError("Your current password is incorrect", 401));
+  }
+
+  // Validate new password and confirmation
+  if (!req.body.newPassword || !req.body.confirmPassword) {
+    return next(
+      new AppError("Please provide a new password and confirmation", 400)
+    );
+  }
+  if (req.body.newPassword !== req.body.confirmPassword) {
+    return next(
+      new AppError("New password and confirmation do not match", 400)
+    );
+  }
+
+  // Update the password
+  user.password = req.body.newPassword;
+  user.passwordConfirm = undefined; // Clear the confirmation field
+  await user.save();
+
+  // Generate a new JWT token (optional, if you want to issue a new token after password change)
+  createSendToken(user._id, 200, res);
+});

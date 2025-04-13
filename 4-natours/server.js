@@ -4,7 +4,7 @@ const fs = require("fs");
 dotenv.config({ path: "./config.env" }); // loads environment variables from .env file
 process.on("uncaughtException", (err) => {
   console.log("UNCAUGHT EXCEPTION! Shutting down...");
-  console.log(err.message);
+  console.log(err);
 });
 const rawData = fs.readFileSync("./tours.json", "utf-8");
 const tours = JSON.parse(rawData);

@@ -77,7 +77,28 @@ const tourSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    password: String,
+    startLocation: {
+      type: {
+        type: String,
+        default: "Point",
+        requires: true,
+        enum: ["Point"],
+      },
+      coordinates: [Number],
+    },
+    locations: [
+      {
+        type: {
+          type: String,
+          default: "Point",
+          enum: ["Point"],
+        },
+        coordinates: [Number],
+        address: String,
+        description: String,
+        day: Number,
+      },
+    ],
   },
   {
     toJSON: { virtuals: true },
@@ -132,7 +153,7 @@ tourSchema.post(/^find/, function (docs, next) {
 
 //Aggregation Middleware
 tourSchema.pre("aggregate", function (next) {
-  this._pipeline.push({ $match: { secretTour: { $ne: false } } });
+  this.pipeline().push({ $match: { secretTour: { $ne: false } } });
   next();
 });
 
