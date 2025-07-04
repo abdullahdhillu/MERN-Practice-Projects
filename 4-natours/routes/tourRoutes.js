@@ -1,9 +1,10 @@
-const fs = require("fs");
+// const fs = require("fs");
 const express = require("express");
 const tourController = require("../controllers/tourController");
 const authController = require("./../controllers/authController");
+const reviewRouter = require("./reviewRoutes");
 const router = express.Router();
-
+router.use("/:tourId/reviews", reviewRouter);
 // const imports = async () => {
 //   const parsedData = JSON.parse(rawData);
 //   await tourModel.insertMany(parsedData);
@@ -18,16 +19,33 @@ router
   .get(tourController.aliasTopTour, tourController.getAllTours);
 router
   .route("/")
-  .get(authController.protect, tourController.getAllTours)
-  .post(tourController.createTour);
+  .get(tourController.getAllTours)
+  .post(authController.protect, tourController.createTour);
 router
   .route("/:id")
   .get(tourController.getTour)
-  .patch(tourController.updateTour)
-  .delete(
-    authController.protect,
-    authController.restrictTo("admin", "lead-guide"),
-    tourController.deleteTour
-  )
-  .put(tourController.replaceTour);
+  .patch(authController.protect, tourController.updateTour)
+  .delete(authController.protect, tourController.deleteTour)
+  .put(authController.protect, tourController.replaceTour);
+
+router
+  .route("/tours-within/distance/:distance/center/:latlng/unit/:unit")
+  .get(tourController.getToursWithin);
+
+router
+  .route("/tours-within/center/:latlng/unit/:distance")
+  .get(tourController.getDistanceFrom);
+
+// Implementing the nested routes
+
+// router
+//   .route("/:tourId/reviews")
+//   .post(
+//     authController.protect,
+//     authController.restrictTo("admin"),
+//     reviewController.createReview
+//   );
+
+//Better Technique to use
+//look on top
 module.exports = router;

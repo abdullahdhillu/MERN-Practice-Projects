@@ -7,22 +7,22 @@ router.post("/login", authController.login);
 
 router.post("/forgotPassword", authController.forgotPassword);
 router.patch("/resetPassword/:token", authController.resetPassword);
+router.use(authController.protect); // Protect all routes after this middleware
+
+router.get("/me", userController.getMe, userController.getUser);
+
 router.patch(
   "/updatePassword",
   authController.protect,
   authController.updatePassword
 );
-router.patch("/updateMe", authController.protect, userController.updateMe);
-router.get("/deleteMe", authController.protect, userController.deleteMe);
-router
-  .route("/")
-  .get(authController.protect, userController.getAllUsers)
-  .post(authController.protect, userController.createUser);
+
+router.route("/").get(userController.getAllUsers);
 
 router
   .route("/:id")
-  .get(authController.protect, userController.getUser)
-  .patch(authController.protect, userController.updateUser)
-  .delete(authController.protect, userController.deleteUser);
+  .get(userController.getUser)
+  .patch(userController.passwordBlocker, userController.updateUser)
+  .delete(authController.restrictTo("admin"), userController.deleteUser);
 
 module.exports = router;

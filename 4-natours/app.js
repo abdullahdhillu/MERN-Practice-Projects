@@ -1,5 +1,6 @@
 const tourRouter = require("./routes/tourRoutes");
 const userRouter = require("./routes/userRoutes");
+const reviewRouter = require("./routes/reviewRoutes");
 const express = require("express");
 const app = express();
 const morgan = require("morgan");
@@ -29,6 +30,7 @@ app.use(mongoSanitize());
 app.use(express.static(`${__dirname}/public`)); // serve static files from public folder
 // 3: ROUTES
 app.use("/api/v1/tours", tourRouter);
+app.use("/api/v1/reviews", reviewRouter);
 app.use("/api/v1/users", userRouter);
 app.all("*", (req, res, next) => {
   next(new AppError(`Cannot find ${req.originalUrl} on this server!`, 404));

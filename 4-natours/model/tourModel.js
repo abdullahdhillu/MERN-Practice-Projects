@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const slugify = require("slugify");
 const bcrypt = require("bcryptjs");
+require("./reviewModel"); // Just register the model
 const tourSchema = new mongoose.Schema(
   {
     name: {
@@ -79,13 +80,25 @@ const tourSchema = new mongoose.Schema(
     },
     startLocation: {
       type: {
-        type: String,
-        default: "Point",
-        requires: true,
-        enum: ["Point"],
+        type: String, // Important: nested 'type' to avoid Mongoose confusion
+        enum: ["Point"], // Must be 'Point' for GeoJSON
+        required: true,
       },
-      coordinates: [Number],
+      coordinates: {
+        type: [Number], // Array of numbers: [longitude, latitude]
+        required: true,
+        validate: {
+          validator: function (val) {
+            return val.length == 2;
+          },
+          message: "Coordinates must be an array of [longitude, latitude]",
+        },
+      },
+      address: String, // Optional, e.g., '221B Baker Street'
+      description: String,
     },
+    password: String,
+    passwordConfirm: String,
     locations: [
       {
         type: {
@@ -99,6 +112,7 @@ const tourSchema = new mongoose.Schema(
         day: Number,
       },
     ],
+    guides: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   {
     toJSON: { virtuals: true },
@@ -109,27 +123,30 @@ const tourSchema = new mongoose.Schema(
 tourSchema.virtual("durationWeeks").get(function () {
   return this.duration / 7;
 });
-
+tourSchema.virtual("reviews", {
+  ref: "Review",
+  foreignField: "tour",
+  localField: "_id",
+});
+tourSchema.index({ price: 1, ratingsAverage: -1 }); // Compound index for price and ratingsAverage
+// tourSchema.index({ slug: 1 }); // Index for slug field
+tourSchema.index({ startLocation: "2dsphere" });
 //DOCUMENT MIDDLEWARE: Runs before .save() and .create() methods
-tourSchema.pre("findOneAndDelete", async function (next) {
-  const queryConditions = this.getQuery();
-  const docToDelete = await this.model.findById(queryConditions._id);
-  console.log(docToDelete);
-  if (docToDelete) {
-    console.log(`Document named "${docToDelete.name}" is being deleted`);
-  } else {
-    console.log("No document found to delete");
-  }
-  console.log(`Document named "${this.name}" was deleted from the database`);
-  next();
-});
-tourSchema.pre("save", async function (next) {
-  this.slug = slugify(this.name, { lower: true });
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
-  console.log(`A new document named "${this.name}" was added to the database`);
-  next();
-});
+// tourSchema.pre("save", async function (next) {
+//   console.log(this);
+//   this.slug = slugify(this.name, { lower: true });
+//   const salt = await bcrypt.genSalt(10);
+//   this.password = await bcrypt.hash(this.password, salt);
+//   console.log(`A new document named "${this.name}" was added to the database`);
+//   next();
+// });
+// tourSchema.pre("save", async function (next) {
+//   const guidesPromises = this.guides.map(async (id) => {
+//     return await User.findById(id);
+//   });
+//   this.guides = await Promise.all(guidesPromises);
+//   next();
+// });
 
 // tourSchema.pre("save", function (next) {
 //   console.log("Will Save Document...");
@@ -151,12 +168,38 @@ tourSchema.post(/^find/, function (docs, next) {
   next();
 });
 
+tourSchema.pre(/^find/, function (next) {
+  this.ratingsAverage = next();
+});
+
+// tourSchema.pre(/^find/, function (next) {
+//   this.populate({
+//     path: "guides",
+//     select: "-__v -role",
+//   });
+//   next();
+// });
+
 //Aggregation Middleware
 tourSchema.pre("aggregate", function (next) {
   this.pipeline().push({ $match: { secretTour: { $ne: false } } });
   next();
 });
 
+tourSchema.pre("aggregate", function () {});
+
+tourSchema.pre("findOneAndDelete", async function (next) {
+  const queryConditions = this.getQuery();
+  const docToDelete = await this.model.findById(queryConditions._id);
+  console.log(docToDelete);
+  if (docToDelete) {
+    console.log(`Document named "${docToDelete.name}" is being deleted`);
+  } else {
+    console.log("No document found to delete");
+  }
+  console.log(`Document named "${this.name}" was deleted from the database`);
+  next();
+});
 // Create a Model from the schema
 const Tour = mongoose.model("Tour", tourSchema);
 module.exports = Tour;

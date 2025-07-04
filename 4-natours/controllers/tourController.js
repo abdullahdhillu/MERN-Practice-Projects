@@ -1,6 +1,8 @@
 const tourModel = require(`./../model/tourModel`);
 const catchAsync = require("./../utilities/catchAsync");
 const AppError = require("./../utilities/appError");
+const factory = require("./handlerFactory");
+const { isLuhnNumber } = require("validator");
 // const APIfeatures = require(`./../utilities/apiFeatures`);
 // console.log(APIfeatures);
 exports.aliasTopTour = (req, res, next) => {
@@ -9,102 +11,29 @@ exports.aliasTopTour = (req, res, next) => {
   req.query.fields = "name,price,duration,difficulty,ratingsAverage";
   next();
 };
-class APIfeatures {
-  constructor(query, queryString) {
-    this.query = query;
-    this.queryString = queryString;
-  }
+exports.getAllTours = factory.getAll(tourModel);
 
-  filter() {
-    // 1A: Basic Filtering
-    console.log("From Filtering Function");
-    let queryObj = { ...this.queryString };
-    const excludedFields = ["sort", "limit", "page", "fields"];
-    excludedFields.forEach((el) => delete queryObj[el]);
-
-    // 1B: Advanced Filtering (gte, gt, lte, lt)
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-
-    this.query = this.query.find(JSON.parse(queryStr));
-    return this;
-  }
-
-  sort() {
-    if (this.queryString.sort) {
-      const sortBy = this.queryString.sort.split(",").join(" ");
-      this.query = this.query.sort(sortBy);
-    } else {
-      this.query = this.query.sort("-createdAt"); // Default sort by newest first
-    }
-    return this;
-  }
-
-  select() {
-    if (this.queryString.fields) {
-      const fields = this.queryString.fields.split(",").join(" ");
-      this.query = this.query.select(fields);
-    } else {
-      this.query = this.query.select("-__v"); // Default exclude '__v'
-    }
-    return this;
-  }
-
-  async pagination() {
-    const limit = parseInt(this.queryString.limit, 10) || 10; // Default limit = 10
-    const page = parseInt(this.queryString.page, 10) || 1; // Default page = 1
-    const skip = (page - 1) * limit; // Calculate skip
-
-    // Check if the requested page exists
-    const numTours = await this.query.model.countDocuments(); // Use the model to count documents
-    if (skip >= numTours && page > 1) {
-      throw new Error("This page does not exist");
-    }
-
-    // Apply pagination
-    this.query = this.query.skip(skip).limit(limit);
-
-    return this;
-  }
-}
-exports.getAllTours = catchAsync(async (req, res) => {
-  // Apply filtering, sorting, field limiting, and pagination
-  const features = new APIfeatures(tourModel.find(), req.query)
-    .filter()
-    .sort()
-    .select();
-  await features.pagination();
-  // Execute the query
-  const result = await features.query;
-  // console.log(result);
-  res.status(200).json({
-    message: "success",
-    results: result.length,
-    data: { result },
-  });
+exports.getTour = factory.getOne(tourModel, {
+  path: "reviews",
+  select: "review -_id",
 });
-exports.getTour = catchAsync(async (req, res, next) => {
-  const tour = await tourModel.findById(req.params.id); // Changed to findById
-  // console.log(tour);
-  if (!tour) {
-    return next(
-      new AppError(`Could not find tour with this ID {${req.params.id}}`, 404)
-    );
-  }
-  res.status(200).json({ message: "success", data: { tour } });
-});
-exports.updateTour = catchAsync(async (req, res) => {
-  const tour = await tourModel.findByIdAndUpdate(req.params.id, req.body, {
-    new: true,
-    runValidators: true,
-  });
-  res.status(200).json({
-    status: "success",
-    data: {
-      tour,
-    },
-  });
-});
+// exports.getTour = catchAsync(async (req, res, next) => {
+//   const tour = await tourModel.findById(req.params.id).populate({
+//     path: "reviews",
+//     select: "review -_id",
+//   }); // Changed to findById
+//   // console.log(tour);
+//   if (!tour) {
+//     return next(
+//       new AppError(`Could not find tour with this ID {${req.params.id}}`, 404)
+//     );
+//   }
+//   console.log(tour.reviews);
+//   res
+//     .status(200)
+//     .json({ message: "success", tour: tour.toObject({ virtual: true }) });
+// });
+exports.updateTour = factory.updateOne(tourModel);
 exports.replaceTour = catchAsync(async (req, res) => {
   const tour = await tourModel.findOneAndReplace(
     { _id: req.params.id },
@@ -128,15 +57,84 @@ exports.createTour = catchAsync(async (req, res) => {
     },
   });
 });
-exports.deleteTour = catchAsync(async (req, res) => {
-  const tour = await tourModel.findOneAndDelete({ _id: req.params.id });
-  if (!tour) {
-    return res.status(404).json({ message: "No such tour found" });
+
+exports.deleteTour = factory.deleteOne(tourModel);
+// exports.deleteTour = catchAsync(async (req, res) => {
+//   const tour = await tourModel.findOneAndDelete({ _id: req.params.id });
+//   if (!tour) {
+//     return res.status(404).json({ message: "No such tour found" });
+//   }
+//   return res
+//     .status(200)
+//     .json({ message: "success", data: { response: "Deleted" } });
+// });
+
+exports.getToursWithin = catchAsync(async (req, res, next) => {
+  // await tourModel.collection.dropIndexes(); // because compass was not showing index so I deleted all indexes to make there are no incomplete indexes
+  // await tourModel.collection.createIndex({ startLocation: "2dsphere" });  // I created the index manually
+  const { distance, latlng, unit } = req.params;
+  const [lat, lng] = latlng.split(",").map(Number);
+  if (!lat || !lng) {
+    return next(new AppError("Please Provide Latitude and Longitude"), 400);
   }
-  return res
-    .status(200)
-    .json({ message: "success", data: { response: "Deleted" } });
+  const radius = unit === "mi" ? distance / 3963.2 : distance / 6378.1;
+  const Tours = await tourModel.find({
+    startLocation: {
+      $geoWithin: {
+        $centerSphere: [[lng, lat], radius],
+      },
+    },
+  });
+  res.status(200).json({
+    results: Tours.length,
+    message: "success",
+    data: {
+      Tours,
+    },
+  });
 });
+
+exports.getDistanceFrom = catchAsync(async (req, res, next) => {
+  const { latlng, distance } = req.params;
+  const maxDistanceInMeters = distance * 1609.344;
+  const [lat, lng] = latlng.split(",").map(Number);
+  if (!lat || !lng) {
+    return next(new AppError("Please provide coordinates"), 400);
+  }
+  const Tour = await tourModel.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [lng, lat],
+        },
+        distanceField: "Distance",
+        // distanceMultiplier: 0.001,
+        spherical: true,
+        maxDistance: maxDistanceInMeters,
+      },
+    },
+    {
+      $addFields: {
+        distanceInMiles: {
+          $round: [{ $divide: ["$Distance", 1609.344] }, 2],
+        },
+      },
+    },
+    {
+      $project: {
+        name: 1,
+        distanceInMiles: 1,
+      },
+    },
+  ]);
+  res.status(200).json({
+    statusCode: 200,
+    message: "success",
+    data: Tour,
+  });
+});
+
 exports.getTourStats = catchAsync(async (req, res) => {
   const stats = await tourModel.aggregate([
     {
@@ -167,6 +165,7 @@ exports.getTourStats = catchAsync(async (req, res) => {
     },
   });
 });
+
 exports.getMonthlyPlan = catchAsync(async (req, res) => {
   const year = req.params.year * 1;
   const plan = await tourModel.aggregate([

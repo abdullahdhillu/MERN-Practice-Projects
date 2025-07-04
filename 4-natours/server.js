@@ -7,7 +7,7 @@ process.on("uncaughtException", (err) => {
   console.log(err);
 });
 const rawData = fs.readFileSync("./tours.json", "utf-8");
-const tours = JSON.parse(rawData);
+// const tours = JSON.parse(rawData);
 
 const app = require("./app.js"); // main application file
 // const DBS = "mongodb+srv://abdullahdhillon:0MkcvNawQyCg33rQ@cluster0.r9bve.mongodb.net/natours?retryWrites=true&w=majority&appName=Cluster0" // MongoDB connection string
